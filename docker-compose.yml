@@ -1,0 +1,53 @@
+# Почтовый сервис для тестового задания.
+# Свои службы дописывайте в этот же файл.
+# Обязательные имена служб: worker и exporter.
+
+services:
+  provider:
+    # Образ скачивается сам при первом запуске, собирать его не нужно.
+    image: ${PROVIDER_IMAGE:-gitea.teamlead.one/armanteam_public/mail-provider:1}
+    container_name: provider
+    environment:
+      CANDIDATE: ${CANDIDATE:?укажите CANDIDATE в файле .env}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:8080/v1/metrics').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  pg_db:
+    image: postgres:16-alpine
+    container_name: postgres-threads
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d post_healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    volumes:
+      - threads_data:/var/lib/postgresql/data/
+
+  # Пример подключения своей службы:
+  #
+  # worker:
+  #   build: .
+  #   depends_on:
+  #     provider:
+  #       condition: service_healthy
+  #   environment:
+  #     PROVIDER_URL: http://provider:8080
+volumes:
+    threads_data:
