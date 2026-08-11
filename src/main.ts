@@ -1,7 +1,9 @@
 import { appConfig } from "./config";
 import { db } from "./db/client";
+import { DrizzleGraphRepository } from "./db/drizzle-graph.repository";
 import { DrizzleMessageRepository } from "./db/drizzle-message.repository";
 import { runMigrations } from "./db/migrate";
+import { ParentResolver } from "./db/thread-resolver/parent-resolver";
 import { CreateLogger } from "./logger";
 import { ProviderClient } from "./provider/client";
 import { TraversalService } from "./traversal/traversal.service";
@@ -53,6 +55,7 @@ async function main() {
   await runMigrations();
 
   const messageRepository = new DrizzleMessageRepository(db);
+  const graphRepository = new DrizzleGraphRepository(db);
 
   const traversalService = new TraversalService(
     providerClient,
@@ -69,6 +72,14 @@ async function main() {
   logger.info({ durationSeconds }, "Traversal is finished");
 
   logger.info({ message: "Shutting down SUCCESS" });
+
+  const parentResolver = new ParentResolver(graphRepository, logger);
+  const timeStart2 = Date.now();
+  await parentResolver.resolveAll();
+  const timeEnd2 = Date.now();
+  const durationSeconds2 = (timeEnd2 - timeStart2) / 1000;
+  logger.info({ durationSeconds2 }, "Parent resolving is finished");
+
   await shutdown();
 }
 
