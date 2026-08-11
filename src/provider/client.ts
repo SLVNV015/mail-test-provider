@@ -1,12 +1,12 @@
 import pino from "pino";
 import { Page, pageSchema } from "./schema";
-import { th } from "zod/locales";
 
 export interface RetryOPtions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
   factor?: number;
+  requestTimeout?: number;
 }
 
 export class ApiError extends Error {
@@ -30,6 +30,11 @@ export class ProviderClient {
   private readonly finalRetryOptions: Required<RetryOPtions>;
   private totalRequestsSent = 0;
 
+  private readonly RPS_LIMIT = 10;
+  private readonly RPS_INTERVAL = 1_000;
+  private requestTimestamps: number[] = []; // Исправлена опечатка
+  private limitQueue: (() => void)[] = [];
+
   constructor(
     private readonly baseUrl: string,
     private readonly logger: pino.Logger,
@@ -39,19 +44,24 @@ export class ProviderClient {
     this.baseUrl = baseUrl;
     this.abortController = abortController;
     this.finalRetryOptions = {
-      maxRetries: 3,
-      baseDelay: 2_000,
-      maxDelay: 30_000,
+      maxRetries: 6,
+      baseDelay: 250,
+      maxDelay: 10_000,
       factor: 2,
+      requestTimeout: 1_500,
       ...retryOptions,
     };
   }
 
-  // 1. Добавьте свойство-счетчик в класс ProviderClient
-
   async request<T>(url: URL, options: RequestInit = {}): Promise<T> {
-    const signal = options?.signal ?? this.abortController?.signal;
+    const globalSignal = options?.signal ?? this.abortController?.signal;
+    const timeOutSignal = AbortSignal.timeout(
+      this.finalRetryOptions.requestTimeout,
+    );
 
+    const signal = globalSignal
+      ? AbortSignal.any([globalSignal, timeOutSignal])
+      : timeOutSignal;
     this.totalRequestsSent++;
     const currentRequestId = this.totalRequestsSent;
     const timestamp = new Date().toISOString();
@@ -61,7 +71,7 @@ export class ProviderClient {
     );
 
     try {
-      const response = await fetch(url, { ...options, signal });
+      const response = await fetch(url, { ...options, signal: signal });
 
       if (!response.ok) {
         const isJson = response.headers.get("content-type")?.includes("json");
@@ -77,7 +87,18 @@ export class ProviderClient {
 
       return (await response.json()) as T;
     } catch (error) {
-      if (error instanceof DOMException) throw error;
+      if (error instanceof DOMException) {
+        if (error.name === "T") {
+          this.logger.warn(
+            `[Запрос #${currentRequestId}] Превышено время ожидания`,
+          );
+
+          throw new Error(
+            `Request timeout after ${this.finalRetryOptions.requestTimeout}ms`,
+          );
+        }
+        throw error;
+      }
       if (error instanceof ApiError) throw error;
 
       this.logger.error(
@@ -89,6 +110,21 @@ export class ProviderClient {
     }
   }
 
+  public async getMessages(cursor: string | null): Promise<Page> {
+    const url = new URL(`v1/messages`, this.baseUrl);
+    url.searchParams.set("limit", "200");
+    if (cursor) url.searchParams.set("cursor", cursor);
+
+    this.logger.info({ url: url.toString() });
+    const response = await this.fetchWithRetries<Page>(url, { method: "GET" });
+    return await pageSchema.parseAsync(response);
+  }
+
+  public async getMetrics() {
+    const url = new URL(`/v1/metrics`, this.baseUrl);
+    return await this.request<unknown>(url, { method: "GET" });
+  }
+
   private async fetchWithRetries<T>(
     url: URL,
     options: RequestInit = {},
@@ -97,6 +133,11 @@ export class ProviderClient {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        if (this.abortController?.signal.aborted) {
+          throw new DOMException("The operation was aborted.", "AbortError");
+        }
+
+        await this.throttle();
         return await this.request<T>(url, options);
       } catch (error) {
         if (attempt === maxRetries) throw error;
@@ -108,7 +149,7 @@ export class ProviderClient {
 
         if (error instanceof ApiError) {
           const isRetryableStatus = error.status === 429 || error.status >= 500;
-          if (!isRetryableStatus) throw error; // 400, 401, 403, 404 и т.д. не ретраемоло
+          if (!isRetryableStatus) throw error;
 
           if (error.status === 429) {
             const retryAfterHeader = error.headers.get("retry-after");
@@ -127,6 +168,8 @@ export class ProviderClient {
             baseDelay * Math.pow(factor, attempt),
           );
           delay = Math.random() * exponentialDelay;
+        } else {
+          delay = Math.min(maxDelay, delay);
         }
 
         this.logger.warn(
@@ -144,21 +187,36 @@ export class ProviderClient {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  public async getMessages(cursor?: string): Promise<Page> {
-    const url = new URL(`v1/messages`, this.baseUrl);
-    url.searchParams.set("limit", "200");
-    if (cursor) url.searchParams.set("cursor", cursor);
-
-    this.logger.info({ url });
-    const response = await this.fetchWithRetries<Page>(url, { method: "GET" });
-    return await pageSchema.parseAsync(response);
+  private async throttle(): Promise<void> {
+    return new Promise((resolve) => {
+      this.limitQueue.push(resolve);
+      this.processQueue();
+    });
   }
 
-  public async getMetrics() {
-    const url = new URL(`/v1/metrics`, this.baseUrl);
-    const response = await this.fetchWithRetries<unknown>(url, {
-      method: "GET",
-    });
-    return response;
+  private processQueue(): void {
+    const now = Date.now();
+
+    // Удаляем старые таймстампы
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (ts) => now - ts < this.RPS_INTERVAL,
+    );
+
+    while (
+      this.requestTimestamps.length < this.RPS_LIMIT &&
+      this.limitQueue.length > 0
+    ) {
+      const nextResolve = this.limitQueue.shift();
+      if (nextResolve) {
+        this.requestTimestamps.push(Date.now());
+        nextResolve();
+      }
+    }
+
+    if (this.limitQueue.length > 0) {
+      const oldestTs = this.requestTimestamps[0] || now;
+      const timeToWait = Math.max(0, this.RPS_INTERVAL - (now - oldestTs));
+      setTimeout(() => this.processQueue(), timeToWait + 5);
+    }
   }
 }
