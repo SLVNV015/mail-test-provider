@@ -4,10 +4,15 @@ CANDIDATE=slevanov@gmail.com
 
 ```bash
 git clone git@github.com:SLVNV015/mail-test-provider.git
+cd mail-test-provider
 cp .env.example .env
+```
+
+Для запуска БД провайдера и воркера:
+```bash
 docker compose up -d 
 ```
-Для экспорта дождаться завершения работы воркера. Запуск экспорта:
+Для экспорта дождаться завершения работы воркера. Он не запустится сам его надо запускать ручками. Запуск экспорта:
 
 ```bash
 docker compose run --rm exporter

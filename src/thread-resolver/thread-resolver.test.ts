@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type pino from "pino";
-import { ThreadResolver } from "./thread-resolver.js";
-import { ExternalId } from "../repositories/graph.repository.js";
-import { ThreadRepository } from "../repositories/thread.repository.js";
+import { ExternalId } from "../repositories/graph.repository";
+import { ThreadRepository } from "../repositories/thread.repository";
+import { ThreadResolver } from "./thread-resolver";
 
 describe("ThreadResolver", () => {
   let threadResolver: ThreadResolver;

@@ -55,6 +55,8 @@ services:
     build:
       context: .
       target: exporter
+    profiles:
+      - manual
     depends_on:
       pg_db:
         condition: service_healthy

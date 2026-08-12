@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type pino from "pino";
-import { GraphRepository } from "../repositories/graph.repository.js";
-import { ParentResolver } from "./parent-resolver.js";
+import { ParentResolver } from "./parent-resolver";
+import {
+  GraphRepository,
+  GraphMessage,
+  ExternalId,
+} from "../repositories/graph.repository";
 
 describe("ParentResolver", () => {
   let parentResolver: ParentResolver;
