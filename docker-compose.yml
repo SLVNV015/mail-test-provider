@@ -32,7 +32,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d post_healthz"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,14 +40,28 @@ services:
     volumes:
       - threads_data:/var/lib/postgresql/data/
 
-  # Пример подключения своей службы:
-  #
-  # worker:
-  #   build: .
-  #   depends_on:
-  #     provider:
-  #       condition: service_healthy
-  #   environment:
-  #     PROVIDER_URL: http://provider:8080
+  worker:
+    build:
+      context: .
+      target: production
+    depends_on:
+      provider:
+        condition: service_healthy
+    environment:
+      PROVIDER_URL: http://provider:8080
+
+
+  exporter:
+    build:
+      context: .
+      target: exporter
+    depends_on:
+      pg_db:
+        condition: service_healthy
+    environment:
+      PROVIDER_URL: http://provider:8080
+    volumes:
+      - ./out/:/app/out/:rw
+
 volumes:
     threads_data:

@@ -6,14 +6,52 @@ import {
   ThreadRepository,
 } from "../repositories/thread.repository";
 import { ExternalId } from "../repositories/graph.repository";
-import { eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
+import { asc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
+import {
+  ExportedDataBatch,
+  ExporterDataRepository,
+} from "../repositories/exporter.repository";
 
 type Database = NodePgDatabase<typeof schema>;
 
-export class DrizzleThreadRepository implements ThreadRepository {
+export class DrizzleThreadRepository
+  implements ThreadRepository, ExporterDataRepository
+{
   constructor(private readonly db: Database) {}
+  async getBatch(
+    cursor: string | null,
+    limit: number,
+  ): Promise<ExportedDataBatch> {
+    const data = await this.db
+      .select({
+        external_id: schema.messages.externalId,
+        thread_key: schema.messages.threadKey,
+        parent_id: schema.messages.parentId,
+        sent_at: schema.messages.sentAt,
+        subject: schema.messages.subject,
+      })
+      .from(schema.messages)
+      .limit(limit)
+      .where(
+        cursor
+          ? gt(schema.messages.externalId, cursor)
+          : isNotNull(schema.messages.externalId),
+      )
+      .orderBy(asc(schema.messages.externalId));
+
+    const nextCursor =
+      data.length < limit ? null : data[data.length - 1].external_id;
+
+    return {
+      data: data.map((d) => ({
+        ...d,
+        sent_at: d.sent_at.toISOString(),
+      })),
+      nextCursor,
+    };
+  }
 
   async getMessageIdsBatch(
     cursor: ExternalId | null,
@@ -76,7 +114,8 @@ export class DrizzleThreadRepository implements ThreadRepository {
         cursot
           ? gt(schema.messages.externalId, cursot)
           : isNotNull(schema.messages.externalId),
-      );
+      )
+      .orderBy(asc(schema.messages.externalId));
 
     if (batchIds.length === 0) {
       return {

@@ -23,3 +23,17 @@ COPY --from=builder --chown=node:node /app/dist ./dist
 USER node
 
 CMD ["node", "dist/main.js"]
+
+
+FROM node:22-alpine AS exporter
+ENV NODE_ENV=production
+WORKDIR /app
+RUN chown -R node:node /app
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+RUN mkdir -p /app/out && chown -R node:node /app/out
+
+USER node
+
+CMD ["node", "dist/exporter.js"]

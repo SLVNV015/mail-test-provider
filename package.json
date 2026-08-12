@@ -5,6 +5,7 @@
   "main": "src/main.ts",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "build": "tsc",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts"
   },
