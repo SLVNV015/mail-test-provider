@@ -1,13 +1,17 @@
 {
   "name": "mail-threads-task",
   "version": "1.0.0",
+  "type": "module",
   "description": "Есть почтовый сервис с API. Через него можно постранично выгрузить все письма — исходные сообщения и ответы на них, одной общей лентой.",
   "main": "src/main.ts",
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "tsc",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file=.env src/db/migrate.ts"
+    "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -22,8 +26,10 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/pg": "^8.21.0",
+    "@vitest/ui": "^4.1.10",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.11",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
