@@ -39,10 +39,6 @@ export class ThreadResolver {
         "Message batch recieved",
       );
 
-      if (batch.edges.length === 0) {
-        break;
-      }
-
       batchCount++;
 
       for (const edge of batch.edges) {
@@ -85,14 +81,14 @@ export class ThreadResolver {
         cursor,
         this.BATCH_SIZE,
       );
-      this.logger.info(
-        {
-          cursor,
-          items: batch.messages.length,
-          next_cursor: batch.nextCursor,
-        },
-        "Message batch recieved",
-      );
+      // this.logger.info(
+      //   {
+      //     cursor,
+      //     items: batch.messages.length,
+      //     next_cursor: batch.nextCursor,
+      //   },
+      //   "Message batch recieved",
+      // );
 
       if (batch.messages.length === 0) {
         break;
@@ -101,7 +97,7 @@ export class ThreadResolver {
 
       const updates: ThreadKeyDto[] = batch.messages.map((el) => ({
         externalId: el,
-        threadKey: this.DSU.find(el),
+        threadKey: this.DSU.getThreadKey(el),
       }));
 
       await this.threadRepository.updateThreads(updates);

@@ -19,14 +19,11 @@ export class ExporterService {
       fs.mkdirSync(fullDir, { recursive: true });
     }
 
-    const filename = "result.json";
+    const filename = "result.jsonl";
     const fullFilename = path.join(fullDir, filename);
     const writer = createWriteStream(fullFilename, { encoding: "utf-8" });
 
     let cursor: string | null = null;
-    let isFirstRecord = true;
-
-    writer.write("[\n");
 
     try {
       while (true) {
@@ -40,13 +37,8 @@ export class ExporterService {
         }
 
         for (const item of data) {
-          if (!isFirstRecord) {
-            writer.write(",\n");
-          } else {
-            isFirstRecord = false;
-          }
-
           writer.write(JSON.stringify(item));
+          writer.write("\n");
         }
 
         if (!nextCursor || nextCursor === cursor) {
@@ -56,7 +48,6 @@ export class ExporterService {
         cursor = nextCursor;
       }
 
-      writer.write("\n]");
       await new Promise<void>((resolve, reject) => {
         writer.on("finish", () => {
           this.logger.info({

@@ -79,8 +79,12 @@ export class DisjointSet {
   }
 
   getThreadKey(id: ExternalId): ExternalId {
-    const root = this.find(id);
+    if (!this.parent.has(id)) {
+      // Письмо без связей — оно само себе thread_key
+      return id;
+    }
 
+    const root = this.find(id);
     return this.canonical.get(root)!;
   }
 }

@@ -24,6 +24,11 @@ export class DrizzleThreadRepository
     cursor: string | null,
     limit: number,
   ): Promise<ExportedDataBatch> {
+    const conditions = [];
+    if (cursor) {
+      conditions.push(gt(schema.messages.externalId, cursor));
+    }
+
     const data = await this.db
       .select({
         external_id: schema.messages.externalId,
@@ -33,20 +38,17 @@ export class DrizzleThreadRepository
         subject: schema.messages.subject,
       })
       .from(schema.messages)
-      .limit(limit)
-      .where(
-        cursor
-          ? gt(schema.messages.externalId, cursor)
-          : isNotNull(schema.messages.externalId),
-      )
-      .orderBy(asc(schema.messages.externalId));
+      .where(conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : undefined)
+      .orderBy(asc(schema.messages.externalId))
+      .limit(limit);
 
     const nextCursor =
-      data.length < limit ? null : data[data.length - 1].external_id;
+      data.length === 0 ? null : data[data.length - 1].external_id;
 
     return {
       data: data.map((d) => ({
         ...d,
+        parent_id: d.parent_id ?? "",
         sent_at: d.sent_at.toISOString(),
       })),
       nextCursor,
@@ -62,15 +64,16 @@ export class DrizzleThreadRepository
         id: schema.messages.externalId,
       })
       .from(schema.messages)
-      .limit(limit)
       .where(
         cursor
           ? gt(schema.messages.externalId, cursor)
           : isNotNull(schema.messages.externalId),
-      );
+      )
+      .orderBy(asc(schema.messages.externalId))
+      .limit(limit);
 
     const nextCursor =
-      messages.length < limit ? null : messages[messages.length - 1].id;
+      messages.length === 0 ? null : messages[messages.length - 1].id;
 
     return {
       nextCursor,
@@ -165,7 +168,8 @@ export class DrizzleThreadRepository
 
     return {
       edges,
-      nextCursor: batchIds[batchIds.length - 1].externalId,
+      nextCursor:
+        batchIds.length === 0 ? null : batchIds[batchIds.length - 1].externalId,
     };
   }
 }

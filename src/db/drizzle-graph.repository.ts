@@ -24,9 +24,13 @@ export class DrizzleGraphRepository implements GraphRepository {
   async saveMessageBatch(batch: ParentIdMessage[]): Promise<void> {
     const filteredNull = batch.filter((message) => message.parentId !== null);
 
-    if (filteredNull.length > 0) {
-      await this.db.execute(
-        sql`
+    if (filteredNull.length === 0) {
+      return;
+    }
+
+    // Используем JOIN чтобы записать parent_id только если он существует в messages
+    await this.db.execute(
+      sql`
       UPDATE messages AS m
       SET parent_id = v.parent_id
       FROM (
@@ -38,9 +42,11 @@ export class DrizzleGraphRepository implements GraphRepository {
         )}
       ) AS v(external_id, parent_id)
       WHERE m.external_id = v.external_id
+        AND EXISTS (
+          SELECT 1 FROM messages WHERE external_id = v.parent_id
+        )
     `,
-      );
-    }
+    );
   }
 
   async getMessageBatch(
@@ -101,6 +107,9 @@ export class DrizzleGraphRepository implements GraphRepository {
     for (const message of messages.values()) {
       for (const reference of message.references) {
         refereceIdSet.add(reference);
+      }
+      if (message.inReplyTo) {
+        refereceIdSet.add(message.inReplyTo);
       }
     }
 

@@ -43,9 +43,6 @@ async function main() {
     logger.error(err, "Unhandled rejection");
     process.exit(1);
   });
-  logger.info({
-    config: appConfig,
-  });
 
   //build deps
   const providerClient = new ProviderClient(

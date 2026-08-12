@@ -37,9 +37,6 @@ async function exporter(): Promise<void> {
     logger.error(err, "Unhandled rejection");
     process.exit(1);
   });
-  logger.info({
-    config: appConfig,
-  });
 
   //buidls
   const threadRepository = new DrizzleThreadRepository(db);

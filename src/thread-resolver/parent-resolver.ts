@@ -25,14 +25,14 @@ export class ParentResolver {
         cursor,
         this.BATCH_SIZE,
       );
-      this.logger.info(
-        {
-          cursor,
-          items: batch.messages.length,
-          next_cursor: batch.nextCursor,
-        },
-        "Message batch recieved",
-      );
+      // this.logger.info(
+      //   {
+      //     cursor,
+      //     items: batch.messages.length,
+      //     next_cursor: batch.nextCursor,
+      //   },
+      //   "Message batch recieved",
+      // );
 
       if (batch.messages.length === 0) {
         break;
@@ -69,15 +69,17 @@ export class ParentResolver {
     message: GraphMessage,
     existingIds: Set<ExternalId>,
   ): ExternalId | null {
-    //сначала нюхаем ссылки от 0 к концу
+    // Проходим references от конца к началу
     if (message.references && message.references.length > 0) {
-      for (const reference of message.references) {
+      for (let i = message.references.length - 1; i >= 0; i--) {
+        const reference = message.references[i];
         if (existingIds.has(reference)) {
           return reference;
         }
       }
     }
 
+    // Проверяем in_reply_to только если не нашли в references
     if (message.inReplyTo && existingIds.has(message.inReplyTo)) {
       return message.inReplyTo;
     }
