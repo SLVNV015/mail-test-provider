@@ -2,10 +2,12 @@ import { appConfig } from "./config";
 import { db } from "./db/client";
 import { DrizzleGraphRepository } from "./db/drizzle-graph.repository";
 import { DrizzleMessageRepository } from "./db/drizzle-message.repository";
+import { DrizzleThreadRepository } from "./db/drizzle-thread.repository";
 import { runMigrations } from "./db/migrate";
-import { ParentResolver } from "./db/thread-resolver/parent-resolver";
 import { CreateLogger } from "./logger";
 import { ProviderClient } from "./provider/client";
+import { ParentResolver } from "./thread-resolver/parent-resolver";
+import { ThreadResolver } from "./thread-resolver/thread-resolver";
 import { TraversalService } from "./traversal/traversal.service";
 
 async function main() {
@@ -56,6 +58,9 @@ async function main() {
 
   const messageRepository = new DrizzleMessageRepository(db);
   const graphRepository = new DrizzleGraphRepository(db);
+  const threadRepository = new DrizzleThreadRepository(db);
+
+  const threadResolver = new ThreadResolver(threadRepository, logger);
 
   const traversalService = new TraversalService(
     providerClient,
@@ -76,9 +81,13 @@ async function main() {
   const parentResolver = new ParentResolver(graphRepository, logger);
   const timeStart2 = Date.now();
   await parentResolver.resolveAll();
+
   const timeEnd2 = Date.now();
   const durationSeconds2 = (timeEnd2 - timeStart2) / 1000;
   logger.info({ durationSeconds2 }, "Parent resolving is finished");
+
+  await threadResolver.fillDsu();
+  await threadResolver.resolveThreads();
 
   await shutdown();
 }

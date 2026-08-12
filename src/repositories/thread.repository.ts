@@ -22,4 +22,9 @@ export interface ThreadRepository {
     cursot: ExternalId | null,
     limit: number,
   ): Promise<ButhcOfThreadEdges>;
+
+  getMessageIdsBatch(
+    cursor: ExternalId | null,
+    limit: number,
+  ): Promise<{ messages: ExternalId[]; nextCursor: ExternalId | null }>;
 }

@@ -4,7 +4,7 @@ import {
   GraphMessage,
   GraphRepository,
   ParentIdMessage,
-} from "../../repositories/graph.repository";
+} from "../repositories/graph.repository";
 
 export class ParentResolver {
   constructor(
