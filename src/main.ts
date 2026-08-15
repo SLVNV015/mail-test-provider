@@ -73,8 +73,6 @@ async function main() {
   const durationSeconds = (timeEnd - timeStart) / 1000;
   logger.info({ durationSeconds }, "Traversal is finished");
 
-  logger.info({ message: "Shutting down SUCCESS" });
-
   const parentResolver = new ParentResolver(graphRepository, logger);
   const timeStart2 = Date.now();
   await parentResolver.resolveAll();
