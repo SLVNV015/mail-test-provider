@@ -8,7 +8,7 @@ services:
     image: ${PROVIDER_IMAGE:-gitea.teamlead.one/armanteam_public/mail-provider:1}
     container_name: provider
     environment:
-      CANDIDATE: ${CANDIDATE:?укажите CANDIDATE в файле .env}
+      CANDIDATE: ${CANDIDATE:-slevanov@gmail.com}
     ports:
       - "8080:8080"
     healthcheck:
@@ -46,6 +46,8 @@ services:
       target: production
     depends_on:
       provider:
+        condition: service_healthy
+      pg_db:
         condition: service_healthy
     environment:
       PROVIDER_URL: http://provider:8080
