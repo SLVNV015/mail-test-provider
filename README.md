@@ -1,5 +1,8 @@
 CANDIDATE=slevanov@gmail.com
 
+```bash
+CANDIDATE=slevanov@gmail.com
+```
 ## Как запустить
 
 ```bash
