@@ -28,7 +28,7 @@ docker compose run --rm exporter
 Прибраться за собой:
 
 ```bash
-docker compose down -v
+docker compose down -v --rmi local --remove-orphans
 ```
 
 ## Как устроено хранение и почему
